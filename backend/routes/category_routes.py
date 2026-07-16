@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from models import db, Category
-
+from sqlalchemy.exc import IntegrityError
 category = Blueprint("category", __name__)
 
 # Create Category
@@ -58,14 +58,24 @@ def update_category(id):
 
 
 # Delete Category
+
 @category.route("/categories/<int:id>", methods=["DELETE"])
 @jwt_required()
 def delete_category(id):
 
     category_data = Category.query.get_or_404(id)
 
-    db.session.delete(category_data)
+    try:
+        db.session.delete(category_data)
+        db.session.commit()
 
-    db.session.commit()
+        return jsonify({
+            "message": "Category Deleted Successfully"
+        }), 200
 
-    return jsonify({"message": "Category Deleted Successfully"}), 200
+    except IntegrityError:
+        db.session.rollback()
+
+        return jsonify({
+            "message": "Cannot delete this category because products are assigned to it."
+        }), 400
